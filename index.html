@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>OoTR – Ocarina of Time Randomizer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --dim: #8b95a3; --accent: #3fb950; --gold: #e3b341; --blue: #1f6feb; }
+  * { box-sizing: border-box; }
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  @media (pointer: coarse) { body *:not(input) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: max(8px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+    background: var(--panel); border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 6px 0 0; font-size: 16px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  h1 img { width: 22px; height: 22px; }
+  h1 b { color: #7ee787; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: #21262d; color: var(--text); font: inherit; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .btn:hover { background: #2a313a; }
+  .btn.primary { background: #1f6f3a; border-color: #2a8a4a; }
+  .btn small { color: var(--dim); }
+  #rom-name { color: var(--dim); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; }
+  .spacer { flex: 1; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  #game-wrap { flex: 1; position: relative; min-width: 0; background: #000; }
+  #game { position: absolute; inset: 0; }
+  #placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: var(--dim); }
+  #placeholder[hidden], [hidden] { display: none !important; }
+  #placeholder h2 { margin: 0; color: var(--text); font-size: 20px; }
+  #placeholder p { margin: 0; max-width: 520px; }
+  #placeholder a { color: #58a6ff; }
+  #placeholder .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  #tracker { width: 380px; flex: none; overflow-y: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 10px 12px 18px; -webkit-overflow-scrolling: touch; }
+  .thead { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  .tstat { color: var(--dim); } .tstat.live { color: var(--accent); } .tstat.searching { color: var(--gold); }
+  .tinfo { color: var(--text); font-variant-numeric: tabular-nums; }
+  .sec h3 { margin: 12px 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .grid { display: grid; gap: 4px; }
+  .grid.g6 { grid-template-columns: repeat(6, 1fr); }
+  .grid.g9 { grid-template-columns: repeat(9, 1fr); }
+  .it { position: relative; min-height: 44px; padding: 3px 2px; border-radius: 7px; border: 1px solid #262c34; background: #0f141a; color: #4b535d;
+    font: 600 10.5px/1.15 system-ui, sans-serif; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .it .lv { font-size: 9.5px; font-weight: 700; color: var(--gold); min-height: 11px; }
+  .it.on { color: #fff; border-color: #3fb950; background: #12261a; }
+  .it.song.on { border-color: #58a6ff; background: #0f1d33; }
+  .it.stone.on { border-color: #e3b341; background: #2a2210; }
+  .it.med.on { border-color: #d2a8ff; background: #23173a; }
+  .grid.g9 .it { min-height: 38px; font-size: 9.5px; }
+  .dgs { display: grid; grid-template-columns: 1fr; gap: 3px; }
+  .dg { display: grid; grid-template-columns: 64px 1fr 1fr 1fr 1fr; gap: 4px; align-items: center; }
+  .dn { font-weight: 600; font-size: 12.5px; }
+  .dp { height: 28px; border-radius: 6px; border: 1px solid #262c34; background: #0f141a; color: #4b535d; font: 600 11px system-ui, sans-serif; cursor: pointer; }
+  .dp.on { color: #fff; border-color: #3fb950; background: #12261a; }
+  .dp.keys.on { border-color: var(--gold); background: #2a2210; }
+  .dp.na { visibility: hidden; }
+  .tfoot { margin-top: 14px; text-align: right; }
+  .linkish { background: none; border: 0; color: var(--dim); text-decoration: underline; font: inherit; font-size: 12px; cursor: pointer; }
+
+  /* phones and portrait iPad: the game on top, the tracker under it */
+  @media (max-width: 900px), (orientation: portrait) {
+    main { flex-direction: column; overflow-y: auto; }
+    #game-wrap { flex: none; height: min(62vh, 75vw); }
+    #tracker { width: auto; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+    #rom-name { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><img src="icon.svg" alt=""><span>OoT<b>R</b></span></h1>
+  <label class="btn primary" for="rom-input">Play ROM file</label>
+  <input type="file" id="rom-input" hidden>
+  <a class="btn" href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">New seed <small>ootrandomizer.com ↗</small></a>
+  <span id="rom-name"></span>
+  <span class="spacer"></span>
+</header>
+<main>
+  <div id="game-wrap">
+    <div id="game"></div>
+    <div id="placeholder">
+      <h2>Ocarina of Time Randomizer</h2>
+      <p>Make a seed on <a href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">ootrandomizer.com</a>, patch it there with your own
+        Ocarina of Time 1.0 ROM (their page does it in your browser), then open the randomized <b>.z64</b> here with <b>Play ROM file</b>.
+        The tracker on the right follows along as you play.</p>
+      <div class="row">
+        <label class="btn primary" for="rom-input">Play ROM file</label>
+        <button class="btn" id="continue" type="button" hidden>Continue <small id="continue-name"></small></button>
+      </div>
+      <p style="font-size:12px">Everything runs in your browser. Your ROM is never uploaded.</p>
+    </div>
+  </div>
+  <aside id="tracker" aria-label="Item tracker"></aside>
+</main>
+<script src="js/ram.js"></script>
+<script src="js/tracker.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
