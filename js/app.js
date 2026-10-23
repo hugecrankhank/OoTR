@@ -52,7 +52,8 @@
   }
 
   var booted = false;
-  function play(bytes, name) {
+  function play(bytes, name, meta) {
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
     var t = title(bytes);
     if (!t.ok && !confirm('"' + name + '" doesn’t look like an N64 ROM (.z64 / .n64 / .v64). Play it anyway?')) return;
     if (t.ok && !/zelda|ocarina|oot/i.test(t.name) && !confirm('This ROM is "' + t.name + '", not Ocarina of Time. The tracker only knows OoT. Play it anyway?')) return;
@@ -65,6 +66,7 @@
     }
     booted = true;
     var id = romId(bytes);
+    if (window.OotIcons) OotIcons.load(bytes);
     store.set('current', { bytes: bytes.buffer.slice(0), name: name });
     OotTracker.setGame(id);
     OotRam.reset();
@@ -104,11 +106,17 @@
     if (f) readFile(f);
   });
 
+  window.OotApp = { play: play, store: store };
   OotTracker.mount($('tracker'));
+  if (window.OotSeed) OotSeed.init();
   store.get('current').then(function (cur) {
-    if (!cur || !cur.bytes) return;
+    if (!cur || !cur.bytes) {
+      store.get('base').then(function (b) { if (b && b.bytes && window.OotIcons) OotIcons.load(new Uint8Array(b.bytes)); });
+      return;
+    }
     var b = new Uint8Array(cur.bytes);
     OotTracker.setGame(romId(b));
+    if (window.OotIcons) OotIcons.load(b);
     $('continue').hidden = false;
     $('continue-name').textContent = cur.name.replace(/\.[^.]+$/, '');
     $('continue').onclick = function () { play(b, cur.name); };

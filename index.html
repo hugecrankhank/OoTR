@@ -65,6 +65,32 @@
   .tfoot { margin-top: 14px; text-align: right; }
   .linkish { background: none; border: 0; color: var(--dim); text-decoration: underline; font: inherit; font-size: 12px; cursor: pointer; }
 
+
+  dialog#seed-dlg { width: min(560px, 94vw); max-height: 90vh; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); }
+  dialog#seed-dlg::backdrop { background: rgba(0,0,0,.6); }
+  #seed-dlg .dh { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  #seed-dlg .db { padding: 4px 16px 16px; overflow-y: auto; max-height: calc(90vh - 60px); }
+  #seed-dlg h4 { margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+  #seed-dlg .drow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  #seed-dlg .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #seed-dlg .grid2 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+  #seed-dlg select, #seed-dlg input[type=text], #seed-dlg textarea { background: #0d1117; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; width: 100%; }
+  #seed-dlg details { margin: 8px 0; font-size: 13px; } #seed-dlg summary { cursor: pointer; color: var(--dim); }
+  #seed-dlg .msg { margin: 6px 0; font-size: 13px; color: var(--dim); } #seed-dlg .msg.ok { color: var(--accent); } #seed-dlg .msg.bad { color: #ff7b72; } #seed-dlg .msg.busy { color: var(--gold); }
+  #seed-dlg a { color: #58a6ff; }
+  #seed-dlg .btn:disabled, #seed-dlg .btn.disabled { opacity: .5; pointer-events: none; }
+  .bar { height: 6px; border-radius: 3px; background: #21262d; overflow: hidden; margin: 10px 0 4px; } .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .it .pic { width: 28px; height: 28px; image-rendering: pixelated; }
+  .it.has-pic .t { font-size: 9px; font-weight: 500; }
+  .it:not(.on) .pic { filter: grayscale(1) brightness(.4); opacity: .7; }
+  .it .note { font-size: 20px; line-height: 1; }
+  .it.song:not(.on) .note { filter: grayscale(1) brightness(.45); }
+  .grid.g9 .it .pic { width: 22px; height: 22px; }
+  .dp .dpic { width: 18px; height: 18px; image-rendering: pixelated; vertical-align: middle; }
+  .dp:not(.on) .dpic { filter: grayscale(1) brightness(.4); }
+  .dp .dct { margin-left: 2px; font-size: 11px; }
+  @media (max-width: 560px) { #seed-dlg .grid2 { grid-template-columns: 1fr; } }
+
   /* phones and portrait iPad: the game on top, the tracker under it */
   @media (max-width: 900px), (orientation: portrait) {
     main { flex-direction: column; overflow-y: auto; }
@@ -77,9 +103,9 @@
 <body>
 <header>
   <h1><img src="icon.svg" alt=""><span>OoT<b>R</b></span></h1>
-  <label class="btn primary" for="rom-input">Play ROM file</label>
+  <label class="btn" for="rom-input">Play ROM file</label>
   <input type="file" id="rom-input" hidden>
-  <a class="btn" href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">New seed <small>ootrandomizer.com ↗</small></a>
+  <button class="btn primary" id="new-seed" type="button">New seed</button>
   <span id="rom-name"></span>
   <span class="spacer"></span>
 </header>
@@ -88,11 +114,12 @@
     <div id="game"></div>
     <div id="placeholder">
       <h2>Ocarina of Time Randomizer</h2>
-      <p>Make a seed on <a href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">ootrandomizer.com</a>, patch it there with your own
-        Ocarina of Time 1.0 ROM (their page does it in your browser), then open the randomized <b>.z64</b> here with <b>Play ROM file</b>.
-        The tracker on the right follows along as you play.</p>
+      <p>Press <b>New seed</b> to roll a seed (or use a patch file from
+        <a href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">ootrandomizer.com</a>) with your own Ocarina of Time 1.0 ROM.
+        Already have a randomized <b>.z64</b>? Open it with <b>Play ROM file</b>. The tracker follows along as you play.</p>
       <div class="row">
-        <label class="btn primary" for="rom-input">Play ROM file</label>
+        <button class="btn primary" type="button" onclick="OotSeed.open()">New seed</button>
+        <label class="btn" for="rom-input">Play ROM file</label>
         <button class="btn" id="continue" type="button" hidden>Continue <small id="continue-name"></small></button>
       </div>
       <p style="font-size:12px">Everything runs in your browser. Your ROM is never uploaded.</p>
@@ -100,8 +127,45 @@
   </div>
   <aside id="tracker" aria-label="Item tracker"></aside>
 </main>
+
+<dialog id="seed-dlg">
+  <div class="dh"><b>New seed</b><button class="btn" id="sd-close" type="button">Close</button></div>
+  <div class="db">
+    <h4>1. Your Ocarina of Time ROM</h4>
+    <div class="drow"><label class="btn" for="sd-base">Choose ROM…</label><input type="file" id="sd-base" hidden></div>
+    <p id="sd-base-status" class="msg"></p>
+
+    <h4>2. Roll a seed</h4>
+    <div class="grid2">
+      <label>Preset<select id="sd-preset"></select></label>
+      <label>Version<select id="sd-version"></select></label>
+      <label>Seed (optional)<input id="sd-seed" type="text" placeholder="random"></label>
+    </div>
+    <details><summary>Custom settings (JSON)</summary>
+      <p class="msg">Settings in the randomizer's JSON form, on top of the preset (e.g. from the site's settings export).</p>
+      <textarea id="sd-json" rows="5" placeholder='{"shuffle_song_items": "any"}'></textarea>
+    </details>
+    <div class="drow"><button class="btn primary" id="sd-roll" type="button">Roll seed &amp; play</button><button class="btn" id="sd-stop" type="button" hidden>Stop</button></div>
+
+    <h4>or: use a patch file</h4>
+    <p class="msg">On <a href="https://ootrandomizer.com/generator" target="_blank" rel="noopener">ootrandomizer.com</a>, generate a seed and download its <b>patch file (.zpf)</b>, then pick it here.</p>
+    <div class="drow"><label class="btn" id="sd-patch-label" for="sd-patch">Use patch file…</label><input type="file" id="sd-patch" hidden accept=".zpf"></div>
+
+    <div id="sd-bar" class="bar" hidden><i></i></div>
+    <p id="sd-status" class="msg"></p>
+    <p id="sd-last" class="msg" hidden>Spoiler log and seed page: <a id="sd-last-link" target="_blank" rel="noopener">ootrandomizer.com ↗</a></p>
+
+    <details class="adv"><summary>Seed relay</summary>
+      <p class="msg">Rolling goes through a small Cloudflare Worker that holds the ootrandomizer.com API key (relay/ootr-worker.js).</p>
+      <input id="sd-relay" type="text">
+    </details>
+  </div>
+</dialog>
 <script src="js/ram.js"></script>
+<script src="js/patcher.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/tracker.js"></script>
+<script src="js/seed.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
